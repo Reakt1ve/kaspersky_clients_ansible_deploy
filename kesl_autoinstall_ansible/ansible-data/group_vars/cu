@@ -1,0 +1,15 @@
+kesl_2_update_source: "http://1.2.3.4/kave_e2k"
+kesl_exclude_files_list:
+  - /usr/argusids
+  - /var/log/
+  - /var/opt/kmu/
+  - /usr/local/agntroot
+  - /etc/postgresql
+  - /var/lib/postgresql
+  - /usr/local/ssl
+  - /usr/argus
+  - /etc/apache2
+  - /var/www/html
+  - /var/opt/cprocsp
+  - /opt/cprocsp
+

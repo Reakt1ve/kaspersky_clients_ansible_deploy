@@ -1,0 +1,93 @@
+- name: Install Kaspersky Elbrus server
+  hosts: test
+  become: yes
+  tasks:
+    - block:
+      - name: Delete previous workdir with content
+        file:
+          state: absent
+          path: '{{ kesl_remote_workdir }}'
+        tags: delete_workdir
+          
+      - name: Create work directory
+        file:
+          path: '{{ kesl_remote_workdir }}'
+          state: directory
+          mode: '0755'
+        tags: create_workdir
+
+      - name: copy script on server
+        copy:
+          src: '{{ kesl_host_workdir }}/{{ item }}'
+          dest: '{{ kesl_remote_workdir }}'
+        tags: copy_script
+        loop: "{{ kesl_copy_host_files }}"
+
+      - name: change permissions for install script
+        file:
+          path: '{{ kesl_remote_workdir }}'
+          mode: '0755'
+          recurse: true
+        tags: change_script_permissions
+
+      - name: Run install script on target server
+        command: bash install-kasper.sh --kesl-dist "{{ kesl_remote_workdir }}/kasper/{{ kesl_dist }}" --preserve
+        register: out
+        args:
+          chdir: "{{ kesl_remote_workdir }}/kasper/"
+        tags: install_kasper
+        failed_when: out.rc not in [0, 1]
+
+      - block:
+        - name: Exclusive files of kesl
+          shell: |
+            kesl-control --admin-session
+            kesl-control --set-settings "{{ item[0] }}" --add-exclusion "{{ item[1] }}"
+          tags: exclusive_files_kesl
+          with_nested:
+            - "{{ range(1, 3 + 1, 1) | list }}"
+            - "{{ kesl_exclude_files_list }}"
+
+        - name: Set app params of kesl for write log in syslog
+          shell: | 
+            kesl-control --admin-session
+            kesl-control --set-app-settings UseSyslog=Yes
+          tags: set_app_params_syslog_kesl
+
+        - name: Set app params of kesl for update db
+          shell: |
+            kesl-control --admin-session
+            kesl-control --set-schedule 6 RuleType="Daily" StartTime="21:00:00;1" RandomInterval="99" ExecuteTimeLimit="0" RunMissedStartRules="Yes"
+          tags: set_app_schedule_kesl
+
+        - name: Set param for task
+          shell: |
+            kesl-control --admin-session
+            kesl-control --set-setting 1 ScanArchived=Yes ScanSfxArchived=Yes ScanMailBases=Yes ScanByAccessType=Open
+            kesl-control --set-setting 2 ScanMailBases=Yes
+            kesl-control --set-setting 3 ScanMailBases=Yes
+          tags: set_app_param_scan_kesl
+
+        - name: Set 2 update source
+          shell: |
+            kesl-control --admin-session
+            kesl-control --set-setting 6 CustomSources.item_0001.URL={{ kesl_2_update_source }} CustomSources.item_0001.Enabled=Yes
+          tags: set_2_update_source
+
+        when: out.rc == 0
+
+      - name: Delete script remains
+        file:
+          state: absent
+          path: '{{ kesl_remote_workdir }}'
+        tags: delete_script_remains
+
+      rescue:
+        - name: Logging hosts with bad results
+          copy:
+            content: '{{ ansible_hostname }}'
+            dest: /var/log/ansible/error_hosts.log
+          delegate_to: 127.0.0.1
+          tags: logger 
+
+    - debug: var=out.rc

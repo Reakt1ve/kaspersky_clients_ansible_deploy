@@ -1,0 +1,9 @@
+[server-t2-cu]
+host.ru
+host.ru
+host.ru
+host.ru
+
+
+[cu:children]
+server-t2-cu

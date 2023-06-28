@@ -1,0 +1,5 @@
+kesl_host_workdir: /usr/doc/ansible/kesl/ansible-data
+kesl_copy_host_files:
+  - kasper
+kesl_remote_workdir: /usr/doc/ansible/kesl
+kesl_dist: kesl-astra_10.1.2-329_e2k-8c.deb
